@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Leave Request Update</title>
+</head>
+<body>
+<h2>Hello <span th:text="${name}">User</span>,</h2>
+<p>We wanted to inform you that your leave request has been <strong th:text="${status}">STATUS</strong>.</p>
+
+<p>
+    <strong>Start Date:</strong> <span th:text="${startDate}"></span><br/>
+    <strong>End Date:</strong> <span th:text="${endDate}"></span>
+</p>
+
+<p>If you have any questions, please reach out to the HR department.</p>
+
+<p>Best regards,<br/>AfricaHR Team</p>
+</body>
+</html>

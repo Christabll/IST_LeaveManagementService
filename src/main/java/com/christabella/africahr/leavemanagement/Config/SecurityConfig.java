@@ -74,7 +74,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:5173",
+                "http://localhost:4200",
                 "http://localhost:8082",
                 "http://localhost:8081"
         ));

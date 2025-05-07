@@ -2,7 +2,6 @@ package com.christabella.africahr.leavemanagement.controller;
 
 import com.christabella.africahr.leavemanagement.dto.*;
 import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
-import com.christabella.africahr.leavemanagement.repository.LeaveBalanceRepository;
 import com.christabella.africahr.leavemanagement.security.CustomUserDetails;
 import com.christabella.africahr.leavemanagement.service.LeaveBalanceService;
 import com.christabella.africahr.leavemanagement.service.LeaveService;
@@ -14,9 +13,9 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/api/v1/leave")
@@ -28,10 +27,14 @@ public class LeaveController {
     private final LeaveTypeService leaveTypeService;
     private final PublicHolidayService publicHolidayService;
 
+
     @PostMapping("/apply")
     @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<ApiResponse<LeaveRequest>> applyLeave(@RequestBody LeaveRequestDto dto) {
-        LeaveRequest request = leaveService.applyForLeave(dto);
+    public ResponseEntity<ApiResponse<LeaveRequest>> applyLeave(
+            @RequestPart("data") LeaveRequestDto dto,
+            @RequestPart(value = "file", required = false) MultipartFile file
+    ) {
+        LeaveRequest request = leaveService.applyForLeave(dto, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.<LeaveRequest>builder()
                         .success(true)
@@ -41,7 +44,7 @@ public class LeaveController {
         );
     }
 
-    //  Get My Requests
+
     @GetMapping("/my-requests")
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<LeaveRequest>>> myRequests() {
@@ -55,7 +58,7 @@ public class LeaveController {
         );
     }
 
-    //For Managers/Admins to view any user's leave balance
+
     @GetMapping("/leave-types")
     @PreAuthorize("hasAnyRole('MANAGER', 'STAFF', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<LeaveTypeDto>>> getAllLeaveTypes() {
@@ -67,7 +70,7 @@ public class LeaveController {
                 .build());
     }
 
-    //For currently logged-in user to check their own leave balance
+
     @GetMapping("/leave/balance")
     @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<LeaveBalanceDto>>> viewMyBalance(Authentication authentication) {
@@ -81,7 +84,6 @@ public class LeaveController {
     }
 
 
-    //  View Balance
     @GetMapping("/admin/leave/balance/{userId}")
     @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<LeaveBalanceDto>>> viewBalanceForUser(@PathVariable String userId) {
@@ -95,7 +97,6 @@ public class LeaveController {
     }
 
 
-    //  Public Holidays
     @GetMapping("/public-holidays")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<List<PublicHolidayDto>>> getHolidays() {
@@ -107,13 +108,14 @@ public class LeaveController {
                 .build());
     }
 
-    //  Team Members on Leave
+
     @GetMapping("/on-leave")
     @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<List<LeaveRequest>>> teamOnLeave() {
-        ApiResponse<List<LeaveRequest>> response = leaveService.getCurrentEmployeesOnLeave();
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<List<TeamOnLeaveDto>>> teamOnLeave(@RequestParam(required = false) String department) {
+        return ResponseEntity.ok(leaveService.getTeamOnLeaveTooltipInfo(department));
     }
 
 
+
 }
+

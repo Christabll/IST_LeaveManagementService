@@ -1,14 +1,19 @@
 package com.christabella.africahr.leavemanagement.controller;
 
 import com.christabella.africahr.leavemanagement.dto.*;
+import com.christabella.africahr.leavemanagement.entity.LeaveBalance;
 import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
 import com.christabella.africahr.leavemanagement.entity.LeaveType;
 import com.christabella.africahr.leavemanagement.service.*;
+import com.christabella.africahr.leavemanagement.dto.BalanceAdjustmentRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 @RestController
@@ -21,7 +26,8 @@ public class AdminController {
     private final ReportingService reportingService;
     private final LeaveBalanceService leaveBalanceService;
 
-    //  Create Leave Type
+
+
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/leave-types")
     public ResponseEntity<ApiResponse<LeaveType>> createLeaveType(@RequestBody LeaveTypeDto dto) {
@@ -34,6 +40,7 @@ public class AdminController {
                         .build()
         );
     }
+
 
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @PutMapping("/leave-requests/{leaveRequestId}/approve")
@@ -48,6 +55,7 @@ public class AdminController {
                 .data(request)
                 .build());
     }
+
 
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @PutMapping("/leave-requests/{leaveRequestId}/reject")
@@ -64,8 +72,6 @@ public class AdminController {
     }
 
 
-
-    //  View Pending Requests
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @GetMapping("/leave-requests/pending")
     public ResponseEntity<ApiResponse<List<LeaveRequest>>> pendingRequests() {
@@ -76,6 +82,7 @@ public class AdminController {
                 .data(requests)
                 .build());
     }
+
 
     @PostMapping("/admin/leave/init-balance/{userId}")
     public ResponseEntity<ApiResponse> initLeaveBalance(@PathVariable String userId) {
@@ -89,7 +96,6 @@ public class AdminController {
     }
 
 
-    //  Generate Reports
     @GetMapping("/reports")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<ReportDto>>> reports() {
@@ -100,4 +106,29 @@ public class AdminController {
                 .data(reports)
                 .build());
     }
+
+
+    @GetMapping("/admin/reports/export")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Resource> exportReports() {
+        ByteArrayInputStream stream = reportingService.exportReportsToCSV();
+        InputStreamResource resource = new InputStreamResource(stream);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=leave-reports.csv")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(resource);
+    }
+
+
+    @PostMapping("/admin/adjust-balance")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<LeaveBalance>> adjustBalance(@RequestBody BalanceAdjustmentRequest request) {
+        LeaveBalance updated = leaveBalanceService.adjustLeaveBalance(
+                request.getUserId(), request.getLeaveTypeId(), request.getNewBalance()
+        );
+        return ResponseEntity.ok(ApiResponse.success("Balance adjusted", updated));
+    }
+
+
 }

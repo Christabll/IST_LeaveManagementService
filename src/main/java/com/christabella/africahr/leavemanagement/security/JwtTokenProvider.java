@@ -44,9 +44,11 @@ public class JwtTokenProvider {
         return extractClaims(token).getSubject();
     }
 
+
     public String getUserId(String token) {
         Claims claims = extractClaims(token);
-        return claims.get("userId").toString();
+        Object userId = claims.get("userId");
+        return userId != null ? userId.toString() : null;
     }
 
 

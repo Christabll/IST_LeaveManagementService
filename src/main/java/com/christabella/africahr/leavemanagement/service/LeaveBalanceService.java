@@ -2,7 +2,6 @@ package com.christabella.africahr.leavemanagement.service;
 
 import com.christabella.africahr.leavemanagement.dto.LeaveBalanceDto;
 import com.christabella.africahr.leavemanagement.entity.LeaveBalance;
-import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
 import com.christabella.africahr.leavemanagement.entity.LeaveType;
 import com.christabella.africahr.leavemanagement.enums.LeaveStatus;
 import com.christabella.africahr.leavemanagement.exception.ResourceNotFoundException;
@@ -34,11 +33,15 @@ public class LeaveBalanceService {
     public void accrueMonthlyLeave() {
         List<LeaveBalance> balances = leaveBalanceRepository.findAll();
         for (LeaveBalance balance : balances) {
-            balance.setBalance(balance.getBalance() + 1.66);
+
+            if ("Personal Time Off".equalsIgnoreCase(balance.getLeaveType().getName())) {
+                balance.setBalance(balance.getBalance() + 1.66);
+            }
         }
         leaveBalanceRepository.saveAll(balances);
-        log.info("✅ Monthly leave accrual executed");
+        log.info("✅ Monthly leave accrual executed successfully");
     }
+
 
 
     @Scheduled(cron = "0 0 2 1 1 *", zone = "Africa/Kigali")
@@ -46,13 +49,17 @@ public class LeaveBalanceService {
     public void carryOverLogic() {
         List<LeaveBalance> balances = leaveBalanceRepository.findAll();
         for (LeaveBalance balance : balances) {
-            double carryOver = Math.min(balance.getBalance(), 5.0);
-            balance.setBalance(carryOver);
-            balance.setCarryOver(carryOver);
+            if ("Personal Time Off".equalsIgnoreCase(balance.getLeaveType().getName())) {
+                double carryOver = Math.min(balance.getBalance(), 5.0);
+                balance.setBalance(carryOver);
+                balance.setCarryOver(carryOver);
+            }
         }
         leaveBalanceRepository.saveAll(balances);
-        log.info("✅ Year-end carry-over processed");
+        log.info("✅ Year-end carryover logic executed");
     }
+
+
 
     public List<LeaveBalanceDto> getBalancesByUserId(String userId) {
         List<LeaveBalance> existingBalances = leaveBalanceRepository.findByUserId(userId);
@@ -100,5 +107,17 @@ public class LeaveBalanceService {
 
         leaveBalanceRepository.saveAll(balances);
     }
+
+
+
+    public LeaveBalance adjustLeaveBalance(String userId, Long leaveTypeId, double newBalance) {
+        LeaveBalance balance = leaveBalanceRepository
+                .findByUserIdAndLeaveType_Id(userId, leaveTypeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Leave balance not found"));
+
+        balance.setBalance(newBalance);
+        return leaveBalanceRepository.save(balance);
+    }
+
 
 }
