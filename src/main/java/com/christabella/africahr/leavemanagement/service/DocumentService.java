@@ -29,7 +29,6 @@ public class DocumentService {
         return new FileSystemResource(file);
     }
 
-
     public String storeFile(MultipartFile file) {
         try {
             File directory = new File(UPLOAD_DIR);

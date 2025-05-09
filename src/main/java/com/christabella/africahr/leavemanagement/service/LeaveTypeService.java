@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class LeaveTypeService {
 
     private final LeaveTypeRepository leaveTypeRepository;
+    private final DocumentService documentService;
 
     public LeaveType createLeaveType(LeaveTypeDto dto) {
         if (leaveTypeRepository.findByName(dto.getName()).isPresent()) {
@@ -33,7 +34,8 @@ public class LeaveTypeService {
         return leaveTypeRepository.findAll().stream()
                 .map(type -> LeaveTypeDto.builder()
                         .name(type.getName())
-                        .defaultBalance(type.getDefaultBalance())
+                        .defaultBalance((int) type.getDefaultBalance())
+                        .requiresDocument(documentService.requiresDocument(type.getName()))
                         .build())
                 .collect(Collectors.toList());
     }

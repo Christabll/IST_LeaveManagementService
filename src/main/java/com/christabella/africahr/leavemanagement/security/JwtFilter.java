@@ -58,9 +58,13 @@ public class JwtFilter extends OncePerRequestFilter {
                 List<String> roles = jwtTokenProvider.getRoles(token);
 
                 List<SimpleGrantedAuthority> authorities = roles.stream()
-                        .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                        .map(role -> {
+                            String cleaned = role.trim().toUpperCase();
+                            return cleaned.startsWith("ROLE_") ? cleaned : "ROLE_" + cleaned;
+                        })
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
+
                 System.out.println("User authenticated with roles: " + authorities);
 
                 CustomUserDetails customUserDetails = new CustomUserDetails(userId, email, null, authorities);

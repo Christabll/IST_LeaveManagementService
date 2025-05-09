@@ -8,7 +8,7 @@ import java.time.LocalDate;
 @NoArgsConstructor @AllArgsConstructor
 @Builder
 public class LeaveRequestDto {
-    private Long leaveTypeId;
+    private String leaveTypeName;
     private LocalDate startDate;
     private LocalDate endDate;
     private String reason;

@@ -4,6 +4,7 @@ import com.christabella.africahr.leavemanagement.dto.*;
 import com.christabella.africahr.leavemanagement.entity.LeaveBalance;
 import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
 import com.christabella.africahr.leavemanagement.entity.LeaveType;
+import com.christabella.africahr.leavemanagement.exception.ResourceNotFoundException;
 import com.christabella.africahr.leavemanagement.service.*;
 import com.christabella.africahr.leavemanagement.dto.BalanceAdjustmentRequest;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -72,7 +74,7 @@ public class AdminController {
     }
 
 
-    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/leave-requests/pending")
     public ResponseEntity<ApiResponse<List<LeaveRequest>>> pendingRequests() {
         List<LeaveRequest> requests = adminService.getPendingRequests();

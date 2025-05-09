@@ -42,8 +42,6 @@ public class LeaveBalanceService {
         log.info("✅ Monthly leave accrual executed successfully");
     }
 
-
-
     @Scheduled(cron = "0 0 2 1 1 *", zone = "Africa/Kigali")
     @Transactional
     public void carryOverLogic() {
@@ -58,8 +56,6 @@ public class LeaveBalanceService {
         leaveBalanceRepository.saveAll(balances);
         log.info("✅ Year-end carryover logic executed");
     }
-
-
 
     public List<LeaveBalanceDto> getBalancesByUserId(String userId) {
         List<LeaveBalance> existingBalances = leaveBalanceRepository.findByUserId(userId);
@@ -91,8 +87,6 @@ public class LeaveBalanceService {
                 .collect(Collectors.toList());
     }
 
-
-
     public void initializeLeaveBalanceForUser(String userId) {
         List<LeaveType> leaveTypes = leaveTypeRepository.findAll();
 
@@ -107,8 +101,6 @@ public class LeaveBalanceService {
 
         leaveBalanceRepository.saveAll(balances);
     }
-
-
 
     public LeaveBalance adjustLeaveBalance(String userId, Long leaveTypeId, double newBalance) {
         LeaveBalance balance = leaveBalanceRepository

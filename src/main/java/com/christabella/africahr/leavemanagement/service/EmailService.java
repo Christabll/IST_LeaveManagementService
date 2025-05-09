@@ -1,5 +1,6 @@
 package com.christabella.africahr.leavemanagement.service;
 
+import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+    private final UserServiceClient userServiceClient;
 
 
     public void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> model) {
@@ -38,4 +40,20 @@ public class EmailService {
             throw new RuntimeException("Failed to send email", e);
         }
     }
+
+    public void sendLeaveSubmissionEmail(LeaveRequest request) {
+        String userId = request.getUserId();
+        String email = userServiceClient.getUserEmail(userId);
+        String name = userServiceClient.getUserFullName(userId);
+
+        Map<String, Object> model = Map.of(
+                "name", name,
+                "startDate", request.getStartDate(),
+                "endDate", request.getEndDate(),
+                "status", "PENDING"
+        );
+
+        sendHtmlEmail(email, "Leave Request Submitted", "leave-notification", model);
+    }
+
 }

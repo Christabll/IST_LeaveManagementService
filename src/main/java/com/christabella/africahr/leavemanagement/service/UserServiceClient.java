@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class UserServiceClient {
@@ -13,6 +15,8 @@ public class UserServiceClient {
 
     @Value("${auth.service.base-url}")
     private String authServiceUrl;
+
+
 
     public String getUserEmail(String userId) {
         return restTemplate.getForObject(authServiceUrl + "/api/v1/users/" + userId + "/email", String.class);
@@ -23,14 +27,18 @@ public class UserServiceClient {
     }
 
     public String getUserAvatar(String userId) {
-        String url = authServiceUrl + "/api/v1/auth/users/" + userId + "/avatar";
-        return restTemplate.getForObject(url, String.class);
+        return restTemplate.getForObject(authServiceUrl + "/api/v1/auth/users/" + userId + "/avatar", String.class);
     }
 
     public String getUserDepartment(String userId) {
         return restTemplate.getForObject(authServiceUrl + "/api/v1/users/" + userId + "/department", String.class);
     }
 
+    public List<String> getManagers(String department) {
+        return List.of("manager1-id", "manager2-id");
+    }
 
+    public List<String> getAdmins() {
+        return List.of("admin1-id");
+    }
 }
-

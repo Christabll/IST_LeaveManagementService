@@ -12,7 +12,10 @@
     import lombok.RequiredArgsConstructor;
     import org.springframework.stereotype.Service;
     import java.time.temporal.ChronoUnit;
+    import java.util.Collections;
     import java.util.List;
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
     import java.util.Map;
 
 
@@ -26,16 +29,27 @@
         private final UserServiceClient userServiceClient;
         private final NotificationService notificationService;
 
+        private static final Logger logger = LoggerFactory.getLogger(AdminService.class);
+
 
         public List<LeaveRequest> getPendingRequests() {
+            logger.info("Fetching pending leave requests from repository...");
             List<LeaveRequest> pending = leaveRequestRepository.findByStatus(LeaveStatus.PENDING);
-            if (pending.isEmpty()) {
-                throw new ResourceNotFoundException("No pending leave requests found");
+
+            if (pending == null) {
+                logger.error("leaveRequestRepository.findByStatus returned null!");
+                return Collections.emptyList();
             }
+
+            if (pending.isEmpty()) {
+                logger.warn("No pending leave requests found in the database.");
+                // Optionally throw an exception or just return empty list
+            } else {
+                logger.info("Found {} pending leave requests.", pending.size());
+            }
+
             return pending;
         }
-
-
 
         @Transactional
         public LeaveRequest approve(Long requestId, String comment) {
@@ -69,7 +83,6 @@
         }
 
 
-
         public LeaveRequest reject(Long requestId, String comment) {
             LeaveRequest request = leaveRequestRepository.findById(requestId)
                     .orElseThrow(() -> new ResourceNotFoundException("Request not found"));
@@ -81,7 +94,6 @@
 
             return leaveRequestRepository.save(request);
         }
-
 
 
         private void sendEmailNotification(LeaveRequest request, String status) {

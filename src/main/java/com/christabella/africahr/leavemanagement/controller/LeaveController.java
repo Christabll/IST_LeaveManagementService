@@ -28,6 +28,7 @@ public class LeaveController {
     private final PublicHolidayService publicHolidayService;
 
 
+
     @PostMapping("/apply")
     @PreAuthorize("hasRole('STAFF')")
     public ResponseEntity<ApiResponse<LeaveRequest>> applyLeave(
@@ -35,7 +36,7 @@ public class LeaveController {
             @RequestPart(value = "file", required = false) MultipartFile file
     ) {
         LeaveRequest request = leaveService.applyForLeave(dto, file);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
+        return ResponseEntity.status(201).body(
                 ApiResponse.<LeaveRequest>builder()
                         .success(true)
                         .message("Leave request submitted successfully")

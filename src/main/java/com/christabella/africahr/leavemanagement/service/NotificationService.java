@@ -21,11 +21,9 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-
     public List<Notification> getUserNotifications(String userId) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
-
 
     public void markAllAsRead(String userId) {
         List<Notification> unread = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
