@@ -59,7 +59,7 @@ public class LeaveBalanceService {
                     newBalance = maxAllocation;
                 }
 
-                balance.setRemainingLeave(String.format("%.1f", newBalance));
+                balance.setRemainingLeave(newBalance % 1 == 0 ? String.format("%.0f", newBalance) : String.format("%.1f", newBalance));
                 log.info("Accrued monthly leave for user: {}, new balance: {}, leave type: {}",
                         balance.getUserId(), newBalance, balance.getLeaveType().getName());
             }
@@ -110,7 +110,9 @@ public class LeaveBalanceService {
                             .defaultBalance(prevBalance.getLeaveType().getDefaultBalance())
                             .carryOver(carryOver)
                             .usedLeave(0.0)
-                            .remainingLeave(String.format("%.1f", prevBalance.getLeaveType().getDefaultBalance() + carryOver))
+                            .remainingLeave((prevBalance.getLeaveType().getDefaultBalance() + carryOver) % 1 == 0 ? 
+                                String.format("%.0f", prevBalance.getLeaveType().getDefaultBalance() + carryOver) : 
+                                String.format("%.1f", prevBalance.getLeaveType().getDefaultBalance() + carryOver))
                             .year(currentYear)
                             .build();
                 } else {
@@ -118,7 +120,7 @@ public class LeaveBalanceService {
                     currentYearBalance.setCarryOver(carryOver);
                     double newRemaining = prevBalance.getLeaveType().getDefaultBalance() + carryOver
                             - currentYearBalance.getUsedLeave();
-                    currentYearBalance.setRemainingLeave(String.format("%.1f", newRemaining));
+                    currentYearBalance.setRemainingLeave(newRemaining % 1 == 0 ? String.format("%.0f", newRemaining) : String.format("%.1f", newRemaining));
                 }
 
                 leaveBalanceRepository.save(currentYearBalance);
@@ -168,7 +170,7 @@ public class LeaveBalanceService {
             balance.setUsedLeave(usedDays);
 
             double remaining = balance.getDefaultBalance() + balance.getCarryOver() - usedDays;
-            balance.setRemainingLeave(String.format("%.1f", remaining));
+            balance.setRemainingLeave(remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
 
             leaveBalanceRepository.save(balance);
         }
@@ -229,7 +231,7 @@ public class LeaveBalanceService {
                             .defaultBalance(defaultBalance)
                             .carryOver(0.0)
                             .usedLeave(0.0)
-                            .remainingLeave(String.format("%.1f", defaultBalance))
+                            .remainingLeave(defaultBalance % 1 == 0 ? String.format("%.0f", defaultBalance) : String.format("%.1f", defaultBalance))
                             .year(year)
                             .manuallyAdjusted(false)
                             .build();
@@ -253,7 +255,7 @@ public class LeaveBalanceService {
         balance.setManuallyAdjusted(true);
 
         double remaining = newBalance + balance.getCarryOver() - balance.getUsedLeave();
-        balance.setRemainingLeave(String.format("%.1f", remaining));
+        balance.setRemainingLeave(remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
 
         return leaveBalanceRepository.save(balance);
     }
@@ -279,7 +281,7 @@ public class LeaveBalanceService {
             balance.setUsedLeave(newUsed);
 
             double remaining = balance.getDefaultBalance() + balance.getCarryOver() - newUsed;
-            balance.setRemainingLeave(String.format("%.1f", remaining));
+            balance.setRemainingLeave(remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
 
             LeaveBalance updated = leaveBalanceRepository.save(balance);
             log.info("BALANCE UPDATED: id={}, remaining={}, used={}",
