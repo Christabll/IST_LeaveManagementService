@@ -12,11 +12,21 @@ import java.util.List;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
     List<LeaveRequest> findByUserId(String userId);
+
     List<LeaveRequest> findByStatus(LeaveStatus status);
+
     List<LeaveRequest> findByUserIdAndLeaveTypeAndStatus(String userId, LeaveType leaveType, LeaveStatus status);
+
     @Query("SELECT r FROM LeaveRequest r WHERE r.startDate = :startDate AND r.status = 'APPROVED'")
     List<LeaveRequest> findByStartDate(@Param("startDate") LocalDate startDate);
+
     boolean existsByUserIdAndStatus(String userId, LeaveStatus status);
 
+    List<LeaveRequest> findByUserIdAndLeaveTypeAndStatusAndStartDateBetween(
+            String userId,
+            LeaveType leaveType,
+            LeaveStatus status,
+            LocalDate startDate,
+            LocalDate endDate);
 
 }

@@ -10,7 +10,6 @@ import com.christabella.africahr.leavemanagement.exception.BadRequestException;
 import com.christabella.africahr.leavemanagement.exception.ResourceNotFoundException;
 import com.christabella.africahr.leavemanagement.repository.LeaveRequestRepository;
 import com.christabella.africahr.leavemanagement.repository.LeaveTypeRepository;
-import com.christabella.africahr.leavemanagement.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,11 +18,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.christabella.africahr.leavemanagement.entity.LeaveBalance;
+import com.christabella.africahr.leavemanagement.exception.LeaveBalanceExceededException;
+import com.christabella.africahr.leavemanagement.repository.LeaveBalanceRepository;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.HashSet;
+import com.christabella.africahr.leavemanagement.entity.PublicHoliday;
+import com.christabella.africahr.leavemanagement.repository.PublicHolidayRepository;
 
 @Slf4j
 @Service
@@ -36,20 +42,89 @@ public class LeaveService {
     private final UserServiceClient userServiceClient;
     private final NotificationService notificationService;
     private final DocumentService documentService;
+    private final LeaveBalanceRepository leaveBalanceRepository;
+    private final LeaveBalanceService leaveBalanceService;
+    private final PublicHolidayRepository publicHolidayRepository;
 
+    public long calculateBusinessDays(LocalDate startDate, LocalDate endDate) {
+        List<LocalDate> holidays = publicHolidayRepository.findByDateBetween(startDate, endDate)
+                .stream()
+                .map(PublicHoliday::getDate)
+                .collect(Collectors.toList());
 
+        long days = 0;
+        LocalDate currentDate = startDate;
+
+        while (!currentDate.isAfter(endDate)) {
+            if (!(currentDate.getDayOfWeek() == DayOfWeek.SATURDAY ||
+                    currentDate.getDayOfWeek() == DayOfWeek.SUNDAY ||
+                    holidays.contains(currentDate))) {
+                days++;
+            }
+            currentDate = currentDate.plusDays(1);
+        }
+
+        return days;
+    }
 
     public LeaveRequest applyForLeave(LeaveRequestDto dto, MultipartFile file) {
-        String userId = getCurrentUserId();
+        String username = getCurrentUserId();
+        String userId = userServiceClient.getUserIdByEmail(username);
+
+        if (userId == null) {
+            log.error("userId is null for email: {}", username);
+            throw new BadRequestException("Unable to find user ID for email: " + username);
+        }
+
+        if (!isValidUUID(userId)) {
+            log.error("userId is not a valid UUID: {}", userId);
+            throw new IllegalArgumentException("userId must be a UUID, not an email or invalid string");
+        }
+
+        String email = userServiceClient.getUserEmail(userId);
 
         boolean hasPending = leaveRequestRepository.existsByUserIdAndStatus(userId, LeaveStatus.PENDING);
         if (hasPending) {
-            throw new BadRequestException("You already have a pending leave request. Please wait for it to be approved or rejected.");
+            throw new BadRequestException(
+                    "You already have a pending leave request. Please wait for it to be approved or rejected.");
         }
-
 
         LeaveType leaveType = leaveTypeRepository.findByNameIgnoreCase(dto.getLeaveTypeName())
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid leave type"));
+
+        if (dto.getStartDate().isAfter(dto.getEndDate())) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
+        long requestedDays = calculateBusinessDays(dto.getStartDate(), dto.getEndDate());
+
+        if (requestedDays <= 0) {
+            throw new BadRequestException("Leave request must include at least one business day");
+        }
+
+        int currentYear = LocalDate.now().getYear();
+
+        LeaveBalance balance = leaveBalanceRepository
+                .findByUserIdAndLeaveType_IdAndYear(userId, leaveType.getId(), currentYear)
+                .orElseGet(() -> {
+                    leaveBalanceService.initializeLeaveBalanceForUser(userId, currentYear);
+                    return leaveBalanceRepository
+                            .findByUserIdAndLeaveType_IdAndYear(userId, leaveType.getId(), currentYear)
+                            .orElseThrow(() -> new ResourceNotFoundException(
+                                    "Leave balance not found after initialization"));
+                });
+
+        double availableBalance = Double.parseDouble(balance.getRemainingLeave());
+
+        if (availableBalance < requestedDays) {
+            String message = String.format(
+                    "Unable to process request: %s has a maximum annual allocation of %.1f days. " +
+                            "You currently have %.1f days available and are requesting %d days. " +
+                            "Please adjust your leave dates to stay within your available balance.",
+                    leaveType.getName(), balance.getDefaultBalance(), availableBalance, requestedDays);
+
+            throw new LeaveBalanceExceededException(message);
+        }
 
         String documentUrl = (file != null && !file.isEmpty()) ? documentService.storeFile(file) : null;
 
@@ -61,24 +136,28 @@ public class LeaveService {
                 .reason(dto.getReason())
                 .documentUrl(documentUrl)
                 .status(LeaveStatus.PENDING)
+                .email(email)
                 .build();
-        log.info("Saving leave request with status: {}", request.getStatus());
         request = leaveRequestRepository.save(request);
 
         try {
-            sendLeaveSubmissionEmail(request);
+            sendEmailNotifications(request);
             notificationService.notify(userId, "Your leave request has been submitted.");
-            for (String approverId : getAllManagersAndAdmins()) {
-                notifyApprover(approverId, request);
-            }
         } catch (Exception e) {
-            log.error("Notification error: ", e);
+            log.error("Failed to send notifications for leave request ID {}: {}", request.getId(), e.getMessage(), e);
         }
 
         return request;
     }
 
-
+    private boolean isValidUUID(String userId) {
+        try {
+            java.util.UUID.fromString(userId);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
 
     public String getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -94,71 +173,62 @@ public class LeaveService {
         throw new BadRequestException("Unable to extract user ID from authentication.");
     }
 
-    private void sendLeaveSubmissionEmail(LeaveRequest request) {
-        if (request == null || request.getUserId() == null) {
-            log.warn("Request or userId is null. Skipping email.");
-            return;
-        }
-
-        String userId = request.getUserId();
+    private void sendEmailNotifications(LeaveRequest leaveRequest) {
         try {
-            String recipientEmail = userServiceClient.getUserEmail(userId);
-            String fullName = userServiceClient.getUserFullName(userId);
-
-            if (recipientEmail == null || fullName == null) {
-                log.warn("User email or name is null for userId: {}", userId);
+            String userEmail = userServiceClient.getUserEmail(leaveRequest.getUserId());
+            if (userEmail == null || userEmail.isBlank()) {
+                log.warn("User email is null or blank for userId: {}", leaveRequest.getUserId());
                 return;
             }
 
-            Map<String, Object> model = Map.of(
-                    "name", fullName,
-                    "startDate", request.getStartDate(),
-                    "endDate", request.getEndDate(),
-                    "status", "SUBMITTED"
-            );
+            Set<String> approverEmails = new HashSet<>();
 
-            emailService.sendHtmlEmail(
-                    recipientEmail,
-                    "Your Leave Request has been submitted",
-                    "leave-notification",
-                    model
-            );
-            log.info("Leave submission email sent to {}", recipientEmail);
+            List<String> managers = userServiceClient.getUsersByRole("MANAGER");
+            List<String> admins = userServiceClient.getUsersByRole("ADMIN");
 
-        } catch (Exception e) {
-            log.error("Error sending leave submission email to userId: {}", userId, e);
-        }
-    }
-
-
-    private void notifyApprover(String approverId, LeaveRequest request) {
-        try {
-            String email = userServiceClient.getUserEmail(approverId);
-            String fullName = userServiceClient.getUserFullName(approverId);
-
-            if (email == null || email.isBlank() || fullName == null || fullName.isBlank()) {
-                log.warn("Approver {} email or name is missing. Skipping email notification.", approverId);
-                return;
+            for (String userId : managers) {
+                String email = userServiceClient.getUserEmail(userId);
+                if (email != null && !email.isBlank()) {
+                    approverEmails.add(email);
+                } else {
+                    log.warn("Manager email is missing for userId: {}. Skipping email notification.", userId);
+                }
             }
 
-            Map<String, Object> model = Map.of(
-                    "name", fullName,
-                    "startDate", request.getStartDate(),
-                    "endDate", request.getEndDate(),
-                    "status", "PENDING"
-            );
+            for (String userId : admins) {
+                String email = userServiceClient.getUserEmail(userId);
+                if (email != null && !email.isBlank()) {
+                    approverEmails.add(email);
+                } else {
+                    log.warn("Admin email is missing for userId: {}. Skipping email notification.", userId);
+                }
+            }
 
-            notificationService.notify(approverId, "A new leave request has been submitted.");
+            Map<String, Object> userModel = Map.of(
+                    "name", userServiceClient.getUserFullName(leaveRequest.getUserId()),
+                    "startDate", leaveRequest.getStartDate(),
+                    "endDate", leaveRequest.getEndDate(),
+                    "status", "SUBMITTED");
             emailService.sendHtmlEmail(
-                    email,
-                    "New Leave Request",
+                    userEmail,
+                    "Leave Request Submitted",
                     "leave-notification",
-                    model
-            );
-            log.info("Leave request email sent to approver {}", email);
+                    userModel);
 
+            for (String approverEmail : approverEmails) {
+                Map<String, Object> approverModel = Map.of(
+                        "name", userServiceClient.getUserFullName(leaveRequest.getUserId()),
+                        "startDate", leaveRequest.getStartDate(),
+                        "endDate", leaveRequest.getEndDate(),
+                        "status", "PENDING");
+                emailService.sendHtmlEmail(
+                        approverEmail,
+                        "New Leave Request for Approval",
+                        "leave-notification",
+                        approverModel);
+            }
         } catch (Exception e) {
-            log.error("Failed to send leave request email to approver: {}", approverId, e);
+            log.error("Failed to send email notifications: {}", e.getMessage(), e);
         }
     }
 
@@ -177,9 +247,7 @@ public class LeaveService {
                                 "name", getUserFullName(userId),
                                 "startDate", request.getStartDate(),
                                 "endDate", request.getEndDate(),
-                                "status", "UPCOMING"
-                        )
-                );
+                                "status", "UPCOMING"));
             } catch (Exception e) {
                 log.error("Failed to send upcoming leave reminder", e);
             }
@@ -202,7 +270,8 @@ public class LeaveService {
         }
 
         List<TeamOnLeaveDto> result = approved.stream()
-                .filter(req -> department == null || department.equalsIgnoreCase(userServiceClient.getUserDepartment(req.getUserId())))
+                .filter(req -> department == null
+                        || department.equalsIgnoreCase(userServiceClient.getUserDepartment(req.getUserId())))
                 .map(req -> TeamOnLeaveDto.builder()
                         .fullName(userServiceClient.getUserFullName(req.getUserId()))
                         .avatarUrl(userServiceClient.getUserAvatar(req.getUserId()))
@@ -225,12 +294,29 @@ public class LeaveService {
         return userServiceClient.getUserFullName(userId);
     }
 
-
-
     private List<String> getAllManagersAndAdmins() {
-        String department = userServiceClient.getUserDepartment(getCurrentUserId());
-        List<String> all = new java.util.ArrayList<>(userServiceClient.getManagers(department));
-        all.addAll(userServiceClient.getAdmins());
-        return all;
+        try {
+            log.info("Fetching all managers and admins");
+            List<String> all = new java.util.ArrayList<>();
+
+            List<String> managers = userServiceClient.getAllManagers();
+            if (managers != null && !managers.isEmpty()) {
+                log.info("Found {} managers", managers.size());
+                all.addAll(managers);
+            }
+
+            List<String> admins = userServiceClient.getAdmins();
+            if (admins != null && !admins.isEmpty()) {
+                log.info("Found {} admins", admins.size());
+                all.addAll(admins);
+            }
+
+            log.info("Total approvers to notify: {}", all.size());
+            return all;
+        } catch (Exception e) {
+            log.error("Error fetching managers and admins: {}", e.getMessage(), e);
+            return List.of();
+        }
     }
+
 }

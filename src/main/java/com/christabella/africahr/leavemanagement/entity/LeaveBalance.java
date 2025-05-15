@@ -15,12 +15,20 @@ public class LeaveBalance {
 
     private String userId;
 
+    private String userEmail;
+   
     @ManyToOne
     private LeaveType leaveType;
 
-    private double balance;
+    private double defaultBalance;
+
+    private double usedLeave;
+    
+    private String remainingLeave;
 
     private double carryOver;
+    
+    private int year;
 
     private boolean manuallyAdjusted;
 }

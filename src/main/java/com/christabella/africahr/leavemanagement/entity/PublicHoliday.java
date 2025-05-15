@@ -6,7 +6,7 @@ import java.time.LocalDate;
 
 @Entity
 @Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
+@NoArgsConstructor 
 @Builder
 public class PublicHoliday {
 
@@ -16,5 +16,19 @@ public class PublicHoliday {
 
         private LocalDate date;
         private String name;
+        private String description;
+
+    public PublicHoliday(Long id, LocalDate date, String name) {
+        this.id = id;
+        this.date = date;
+        this.name = name;
+    }
+    
+    public PublicHoliday(Long id, LocalDate date, String name, String description) {
+        this.id = id;
+        this.date = date;
+        this.name = name;
+        this.description = description;
+    }
 }
 

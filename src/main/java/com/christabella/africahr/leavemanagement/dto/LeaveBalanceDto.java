@@ -8,7 +8,11 @@ import lombok.*;
 public class LeaveBalanceDto {
     private String leaveType;
     private double defaultBalance;
-    private double balance;
     private double carryOver;
     private int usedLeave;
+    private String remainingLeave;
+    private int year; 
 }
+
+
+

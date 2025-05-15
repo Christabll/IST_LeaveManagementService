@@ -8,4 +8,6 @@ import java.util.List;
 public interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Long> {
     List<PublicHoliday> findByDateAfterOrderByDateAsc(LocalDate today);
     boolean existsByDate(LocalDate date);
+    List<PublicHoliday> findByDateBetween(LocalDate start, LocalDate end);
+
 }

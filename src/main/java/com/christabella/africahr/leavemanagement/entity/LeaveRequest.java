@@ -21,6 +21,9 @@ public class LeaveRequest {
     @Column(nullable = false)
     private String userId;
 
+    @Column(nullable = false)
+    private String email;
+
     @ManyToOne(optional = false)
     private LeaveType leaveType;
 
