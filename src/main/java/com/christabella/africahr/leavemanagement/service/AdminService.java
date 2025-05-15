@@ -83,7 +83,7 @@ public class AdminService {
 
         int currentYear = LocalDate.now().getYear();
         
-        // Use LeaveService's calculateBusinessDays method
+
         long businessDays = leaveService.calculateBusinessDays(request.getStartDate(), request.getEndDate());
         
         logger.info("Calculated {} business days for leave from {} to {}", 

@@ -3,10 +3,9 @@ package com.christabella.africahr.leavemanagement.dto;
 import lombok.Data;
 
 @Data
-public class BalanceAdjustmentRequest {
+public class UsedDaysAdjustmentRequest {
     private String userId;
     private Long leaveTypeId;
-    private Double newBalance;
     private Double usedDays;
     private String reason;
-}
+} 

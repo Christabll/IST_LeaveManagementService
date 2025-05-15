@@ -12,138 +12,182 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.christabella.africahr.leavemanagement.exception.BadRequestException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 public class AdminController {
 
-    private final LeaveTypeService leaveTypeService;
-    private final AdminService adminService;
-    private final ReportingService reportingService;
-    private final LeaveBalanceService leaveBalanceService;
+        private final LeaveTypeService leaveTypeService;
+        private final AdminService adminService;
+        private final ReportingService reportingService;
+        private final LeaveBalanceService leaveBalanceService;
+        private static final Logger log = LoggerFactory.getLogger(AdminController.class);
 
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @PostMapping("/leave-types")
-    public ResponseEntity<ApiResponse<LeaveType>> createLeaveType(@RequestBody LeaveTypeDto dto) {
-        LeaveType type = leaveTypeService.createLeaveType(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponse.<LeaveType>builder()
-                        .success(true)
-                        .message("Leave type created")
-                        .data(type)
-                        .build()
-        );
-    }
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @PostMapping("/leave-types")
+        public ResponseEntity<ApiResponse<LeaveType>> createLeaveType(@RequestBody LeaveTypeDto dto) {
+                LeaveType type = leaveTypeService.createLeaveType(dto);
+                return ResponseEntity.status(HttpStatus.CREATED).body(
+                                ApiResponse.<LeaveType>builder()
+                                                .success(true)
+                                                .message("Leave type created")
+                                                .data(type)
+                                                .build());
+        }
 
-    @PreAuthorize("hasAnyAuthority('MANAGER','ADMIN')")
-    @PutMapping("/leave-requests/{leaveRequestId}/approve")
-    public ResponseEntity<ApiResponse<LeaveRequest>> approveRequest(
-            @PathVariable("leaveRequestId") Long leaveRequestId,
-            @RequestParam String comment
-    ) {
-        LeaveRequest request = adminService.approve(leaveRequestId, comment);
-        return ResponseEntity.ok(ApiResponse.<LeaveRequest>builder()
-                .success(true)
-                .message("Leave approved")
-                .data(request)
-                .build());
-    }
+        @PreAuthorize("hasAnyAuthority('MANAGER','ADMIN')")
+        @PutMapping("/leave-requests/{leaveRequestId}/approve")
+        public ResponseEntity<ApiResponse<LeaveRequest>> approveRequest(
+                        @PathVariable("leaveRequestId") Long leaveRequestId,
+                        @RequestParam String comment) {
+                LeaveRequest request = adminService.approve(leaveRequestId, comment);
+                return ResponseEntity.ok(ApiResponse.<LeaveRequest>builder()
+                                .success(true)
+                                .message("Leave approved")
+                                .data(request)
+                                .build());
+        }
 
-    @PreAuthorize("hasAnyAuthority('MANAGER','ADMIN')")
-    @PutMapping("/leave-requests/{leaveRequestId}/reject")
-    public ResponseEntity<ApiResponse<LeaveRequest>> rejectRequest(
-            @PathVariable("leaveRequestId") Long leaveRequestId,
-            @RequestParam String comment
-    ) {
-        LeaveRequest request = adminService.reject(leaveRequestId, comment);
-        return ResponseEntity.ok(ApiResponse.<LeaveRequest>builder()
-                .success(true)
-                .message("Leave rejected")
-                .data(request)
-                .build());
-    }
+        @PreAuthorize("hasAnyAuthority('MANAGER','ADMIN')")
+        @PutMapping("/leave-requests/{leaveRequestId}/reject")
+        public ResponseEntity<ApiResponse<LeaveRequest>> rejectRequest(
+                        @PathVariable("leaveRequestId") Long leaveRequestId,
+                        @RequestParam String comment) {
+                LeaveRequest request = adminService.reject(leaveRequestId, comment);
+                return ResponseEntity.ok(ApiResponse.<LeaveRequest>builder()
+                                .success(true)
+                                .message("Leave rejected")
+                                .data(request)
+                                .build());
+        }
 
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'MANAGER')")
-    @GetMapping("/leave-requests/pending")
-    public ResponseEntity<ApiResponse<List<LeaveRequestDto>>> pendingRequests() {
-        List<LeaveRequestDto> requests = adminService.getPendingRequestDtos();
-        return ResponseEntity.ok(ApiResponse.<List<LeaveRequestDto>>builder()
-                .success(true)
-                .message("Pending leave requests")
-                .data(requests)
-                .build());
-    }
+        @PreAuthorize("hasAnyAuthority('ADMIN', 'MANAGER')")
+        @GetMapping("/leave-requests/pending")
+        public ResponseEntity<ApiResponse<List<LeaveRequestDto>>> pendingRequests() {
+                List<LeaveRequestDto> requests = adminService.getPendingRequestDtos();
+                return ResponseEntity.ok(ApiResponse.<List<LeaveRequestDto>>builder()
+                                .success(true)
+                                .message("Pending leave requests")
+                                .data(requests)
+                                .build());
+        }
 
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @PostMapping("/leave/init-balance/{userId}")
-    public ResponseEntity<ApiResponse> initLeaveBalance(@PathVariable String userId) {
-        leaveBalanceService.initializeLeaveBalanceForUser(userId);
-        return ResponseEntity.ok(
-                ApiResponse.builder()
-                        .success(true)
-                        .message("Leave balances initialized for user")
-                        .build()
-        );
-    }
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @PostMapping("/leave/init-balance/{userId}")
+        public ResponseEntity<ApiResponse> initLeaveBalance(@PathVariable String userId) {
+                leaveBalanceService.initializeLeaveBalanceForUser(userId);
+                return ResponseEntity.ok(
+                                ApiResponse.builder()
+                                                .success(true)
+                                                .message("Leave balances initialized for user")
+                                                .build());
+        }
 
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @GetMapping("/reports")
-    public ResponseEntity<ApiResponse<List<ReportDto>>> reports() {
-        List<ReportDto> reports = reportingService.generateAllLeaveReports();
-        return ResponseEntity.ok(ApiResponse.<List<ReportDto>>builder()
-                .success(true)
-                .message("Leave report generated")
-                .data(reports)
-                .build());
-    }
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @GetMapping("/reports")
+        public ResponseEntity<ApiResponse<List<ReportDto>>> reports() {
+                List<ReportDto> reports = reportingService.generateAllLeaveReports();
+                return ResponseEntity.ok(ApiResponse.<List<ReportDto>>builder()
+                                .success(true)
+                                .message("Leave report generated")
+                                .data(reports)
+                                .build());
+        }
 
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @GetMapping("/reports/export")
-    public ResponseEntity<Resource> exportReports() {
-        ByteArrayInputStream stream = reportingService.exportReportsToCSV();
-        InputStreamResource resource = new InputStreamResource(stream);
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @GetMapping("/reports/export")
+        public ResponseEntity<Resource> exportReports() {
+                ByteArrayInputStream stream = reportingService.exportReportsToCSV();
+                InputStreamResource resource = new InputStreamResource(stream);
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=leave-reports.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(resource);
-    }
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=leave-reports.csv")
+                                .contentType(MediaType.parseMediaType("text/csv"))
+                                .body(resource);
+        }
 
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @PostMapping("/adjust-balance")
-    public ResponseEntity<ApiResponse<LeaveBalance>> adjustBalance(@RequestBody BalanceAdjustmentRequest request) {
-        LeaveBalance updated = leaveBalanceService.adjustLeaveBalance(
-                request.getUserId(), request.getLeaveTypeId(), request.getNewBalance()
-        );
-        return ResponseEntity.ok(ApiResponse.success("Balance adjusted", updated));
-    }
+        
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @PostMapping("/adjust-balance")
+        public ResponseEntity<ApiResponse<LeaveBalance>> adjustBalance(@RequestBody BalanceAdjustmentRequest request) {
+            LeaveBalance updated;
+            
+            if (request.getUsedDays() != null) {
+                updated = leaveBalanceService.adjustUsedDays(
+                        request.getUserId(), request.getLeaveTypeId(), request.getUsedDays()
+                );
+            } else if (request.getNewBalance() != null) {
+                updated = leaveBalanceService.adjustLeaveBalance(
+                        request.getUserId(), request.getLeaveTypeId(), request.getNewBalance()
+                );
+            } else {
+                throw new BadRequestException("Either newBalance or usedDays must be provided");
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success("Balance adjusted", updated));
+        }
 
-    @PreAuthorize("hasAnyAuthority('MANAGER', 'ADMIN')")
-    @GetMapping("/leave/balance/{userId}")
-    public ResponseEntity<ApiResponse<List<LeaveBalanceDto>>> viewBalanceForUser(@PathVariable String userId) {
-        List<LeaveBalanceDto> balances = leaveBalanceService.getBalancesByUserId(userId);
-        return ResponseEntity.ok(ApiResponse.<List<LeaveBalanceDto>>builder()
-                .success(true)
-                .message("User leave balance")
-                .data(balances)
-                .build());
-    }
+        @PreAuthorize("hasAnyAuthority('MANAGER', 'ADMIN')")
+        @GetMapping("/leave/balance/{userId}")
+        public ResponseEntity<ApiResponse<List<LeaveBalanceDto>>> viewBalanceForUser(@PathVariable String userId) {
+                List<LeaveBalanceDto> balances = leaveBalanceService.getBalancesByUserId(userId);
+                return ResponseEntity.ok(ApiResponse.<List<LeaveBalanceDto>>builder()
+                                .success(true)
+                                .message("User leave balance")
+                                .data(balances)
+                                .build());
+        }
 
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @PostMapping("/leave/init-balance-all")
+        public ResponseEntity<ApiResponse> initializeAllLeaveBalances() {
+                int count = leaveBalanceService.initializeAllLeaveBalances();
 
-    @PreAuthorize("hasAuthority('ADMIN')")
-@PostMapping("/leave/init-balance-all")
-public ResponseEntity<ApiResponse> initializeAllLeaveBalances() {
-    int count = leaveBalanceService.initializeAllLeaveBalances();
-    
-    return ResponseEntity.ok(
-            ApiResponse.builder()
-                    .success(true)
-                    .message("Leave balances initialized for " + count + " users")
-                    .build()
-    );
-}
+                return ResponseEntity.ok(
+                                ApiResponse.builder()
+                                                .success(true)
+                                                .message("Leave balances initialized for " + count + " users")
+                                                .build());
+        }
+
+        @PreAuthorize("hasAuthority('ADMIN')")
+        @PostMapping("/adjust-used-days")
+        public ResponseEntity<ApiResponse<LeaveBalance>> adjustUsedDays(@RequestBody UsedDaysAdjustmentRequest request) {
+            try {
+                log.info("CONTROLLER: Adjust used days request details: userId={}, leaveTypeId={}, usedDays={}",
+                    request.getUserId(), request.getLeaveTypeId(), request.getUsedDays());
+            
+
+                    LeaveBalance beforeChange = leaveBalanceService.getLeaveBalanceOrNull(
+                    request.getUserId(), request.getLeaveTypeId());
+                
+                if (beforeChange != null) {
+                    log.info("CONTROLLER: Current state in DB: usedLeave={}, remainingLeave={}",
+                        beforeChange.getUsedLeave(), beforeChange.getRemainingLeave());
+                } else {
+                    log.warn("CONTROLLER: No record found in DB before adjustment");
+                }
+            
+                LeaveBalance updated = leaveBalanceService.adjustUsedDays(
+                        request.getUserId(), 
+                        request.getLeaveTypeId(), 
+                        request.getUsedDays());
+            
+                log.info("CONTROLLER: After adjustment: usedLeave={}, remainingLeave={}",
+                    updated.getUsedLeave(), updated.getRemainingLeave());
+            
+                return ResponseEntity.ok(ApiResponse.success("Used days adjusted", updated));
+            } catch (Exception e) {
+                log.error("CONTROLLER: Error adjusting used days: {}", e.getMessage(), e);
+                throw e;
+            }
+        }
 }

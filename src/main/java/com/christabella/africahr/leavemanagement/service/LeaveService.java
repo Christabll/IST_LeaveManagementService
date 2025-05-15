@@ -232,6 +232,7 @@ public class LeaveService {
         }
     }
 
+    
     @Scheduled(cron = "0 0 9 * * *", zone = "Africa/Kigali")
     public void remindUsersOfUpcomingLeaves() {
         List<LeaveRequest> upcoming = leaveRequestRepository.findByStartDate(LocalDate.now().plusDays(1));

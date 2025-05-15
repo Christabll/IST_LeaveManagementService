@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.HashSet;
 import java.util.Set;
@@ -59,7 +60,8 @@ public class LeaveBalanceService {
                     newBalance = maxAllocation;
                 }
 
-                balance.setRemainingLeave(newBalance % 1 == 0 ? String.format("%.0f", newBalance) : String.format("%.1f", newBalance));
+                balance.setRemainingLeave(
+                        newBalance % 1 == 0 ? String.format("%.0f", newBalance) : String.format("%.1f", newBalance));
                 log.info("Accrued monthly leave for user: {}, new balance: {}, leave type: {}",
                         balance.getUserId(), newBalance, balance.getLeaveType().getName());
             }
@@ -68,8 +70,6 @@ public class LeaveBalanceService {
         leaveBalanceRepository.saveAll(balances);
         log.info("Monthly leave accrual completed for year {}", currentYear);
     }
-
-
 
     @Scheduled(cron = "0 0 1 1 1 *", zone = "Africa/Kigali")
     @Transactional
@@ -110,9 +110,9 @@ public class LeaveBalanceService {
                             .defaultBalance(prevBalance.getLeaveType().getDefaultBalance())
                             .carryOver(carryOver)
                             .usedLeave(0.0)
-                            .remainingLeave((prevBalance.getLeaveType().getDefaultBalance() + carryOver) % 1 == 0 ? 
-                                String.format("%.0f", prevBalance.getLeaveType().getDefaultBalance() + carryOver) : 
-                                String.format("%.1f", prevBalance.getLeaveType().getDefaultBalance() + carryOver))
+                            .remainingLeave((prevBalance.getLeaveType().getDefaultBalance() + carryOver) % 1 == 0
+                                    ? String.format("%.0f", prevBalance.getLeaveType().getDefaultBalance() + carryOver)
+                                    : String.format("%.1f", prevBalance.getLeaveType().getDefaultBalance() + carryOver))
                             .year(currentYear)
                             .build();
                 } else {
@@ -120,7 +120,8 @@ public class LeaveBalanceService {
                     currentYearBalance.setCarryOver(carryOver);
                     double newRemaining = prevBalance.getLeaveType().getDefaultBalance() + carryOver
                             - currentYearBalance.getUsedLeave();
-                    currentYearBalance.setRemainingLeave(newRemaining % 1 == 0 ? String.format("%.0f", newRemaining) : String.format("%.1f", newRemaining));
+                    currentYearBalance.setRemainingLeave(newRemaining % 1 == 0 ? String.format("%.0f", newRemaining)
+                            : String.format("%.1f", newRemaining));
                 }
 
                 leaveBalanceRepository.save(currentYearBalance);
@@ -129,8 +130,6 @@ public class LeaveBalanceService {
 
         log.info("Year-end carryover processing completed");
     }
-
-
 
     @Transactional
     public List<LeaveBalanceDto> getBalancesByUserId(String userId) {
@@ -156,7 +155,7 @@ public class LeaveBalanceService {
 
             LeaveType leaveType = balance.getLeaveType();
 
-            double usedDays = leaveRequestRepository
+            double calculatedUsedDays = leaveRequestRepository
                     .findByUserIdAndLeaveTypeAndStatusAndStartDateBetween(
                             userId,
                             leaveType,
@@ -167,10 +166,19 @@ public class LeaveBalanceService {
                     .mapToLong(req -> ChronoUnit.DAYS.between(req.getStartDate(), req.getEndDate()) + 1)
                     .sum();
 
-            balance.setUsedLeave(usedDays);
+            if (balance.isManuallyAdjusted()) {
+                log.info("Using manually adjusted value for {}: {} instead of calculated: {}",
+                        balance.getLeaveType().getName(), balance.getUsedLeave(), calculatedUsedDays);
 
-            double remaining = balance.getDefaultBalance() + balance.getCarryOver() - usedDays;
-            balance.setRemainingLeave(remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
+                    } else {
+
+                balance.setUsedLeave(calculatedUsedDays);
+            }
+
+
+            double remaining = balance.getDefaultBalance() + balance.getCarryOver() - balance.getUsedLeave();
+            balance.setRemainingLeave(
+                    remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
 
             leaveBalanceRepository.save(balance);
         }
@@ -178,14 +186,15 @@ public class LeaveBalanceService {
         return existingBalances.stream()
                 .map(balance -> LeaveBalanceDto.builder()
                         .leaveType(balance.getLeaveType().getName())
+                        .leaveTypeId(balance.getLeaveType().getId())
                         .defaultBalance(balance.getDefaultBalance())
                         .usedLeave((int) balance.getUsedLeave())
                         .remainingLeave(balance.getRemainingLeave())
                         .carryOver(balance.getCarryOver())
+                        .year(balance.getYear())
                         .build())
                 .collect(Collectors.toList());
     }
-
 
     @Transactional
     public void initializeLeaveBalanceForUser(String userId) {
@@ -209,8 +218,7 @@ public class LeaveBalanceService {
             log.info("Converted email to UUID: {}", correctedUserId);
         }
 
-        final String finalUserId = correctedUserId;  
-
+        final String finalUserId = correctedUserId;
 
         List<LeaveBalance> existingBalances = leaveBalanceRepository.findByUserIdAndYear(finalUserId, year);
         if (!existingBalances.isEmpty()) {
@@ -231,7 +239,8 @@ public class LeaveBalanceService {
                             .defaultBalance(defaultBalance)
                             .carryOver(0.0)
                             .usedLeave(0.0)
-                            .remainingLeave(defaultBalance % 1 == 0 ? String.format("%.0f", defaultBalance) : String.format("%.1f", defaultBalance))
+                            .remainingLeave(defaultBalance % 1 == 0 ? String.format("%.0f", defaultBalance)
+                                    : String.format("%.1f", defaultBalance))
                             .year(year)
                             .manuallyAdjusted(false)
                             .build();
@@ -242,7 +251,6 @@ public class LeaveBalanceService {
         log.info("Leave balances initialized for user: {} (email: {}) for year: {}", finalUserId, email, year);
     }
 
-    
     @Transactional
     public LeaveBalance adjustLeaveBalance(String userId, Long leaveTypeId, double newBalance) {
         int currentYear = LocalDate.now().getYear();
@@ -255,11 +263,11 @@ public class LeaveBalanceService {
         balance.setManuallyAdjusted(true);
 
         double remaining = newBalance + balance.getCarryOver() - balance.getUsedLeave();
-        balance.setRemainingLeave(remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
+        balance.setRemainingLeave(
+                remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
 
         return leaveBalanceRepository.save(balance);
     }
-
 
     @Transactional
     public void updateBalanceForApprovedLeave(String userId, Long leaveTypeId, long days) {
@@ -281,7 +289,8 @@ public class LeaveBalanceService {
             balance.setUsedLeave(newUsed);
 
             double remaining = balance.getDefaultBalance() + balance.getCarryOver() - newUsed;
-            balance.setRemainingLeave(remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
+            balance.setRemainingLeave(
+                    remaining % 1 == 0 ? String.format("%.0f", remaining) : String.format("%.1f", remaining));
 
             LeaveBalance updated = leaveBalanceRepository.save(balance);
             log.info("BALANCE UPDATED: id={}, remaining={}, used={}",
@@ -317,5 +326,54 @@ public class LeaveBalanceService {
 
         log.info("Completed initializing leave balances. Success: {}/{}", successCount, uniqueUserIds.size());
         return successCount;
+    }
+
+    @Transactional
+    public LeaveBalance adjustUsedDays(String userId, Long leaveTypeId, Double usedDays) {
+        int currentYear = LocalDate.now().getYear();
+
+        log.info("ADJUST_USED_DAYS START: userId={}, leaveTypeId={}, usedDays={}, year={}",
+                userId, leaveTypeId, usedDays, currentYear);
+
+        LeaveBalance balance = leaveBalanceRepository
+                .findByUserIdAndLeaveType_IdAndYear(userId, leaveTypeId, currentYear)
+                .orElseThrow(() -> new ResourceNotFoundException("Leave balance not found"));
+
+        log.info("FOUND BALANCE: id={}, leaveType={}, usedLeave={} -> {}, remainingLeave={}",
+                balance.getId(), balance.getLeaveType().getName(),
+                balance.getUsedLeave(), usedDays, balance.getRemainingLeave());
+
+        double usedDaysValue = (usedDays != null) ? usedDays : 0.0;
+
+        balance.setUsedLeave(usedDaysValue);
+        balance.setManuallyAdjusted(true);
+
+        double remaining = balance.getDefaultBalance() + balance.getCarryOver() - usedDaysValue;
+        String newRemainingValue = remaining % 1 == 0 ? String.format("%.0f", remaining)
+                : String.format("%.1f", remaining);
+        balance.setRemainingLeave(newRemainingValue);
+
+        LeaveBalance updated = leaveBalanceRepository.saveAndFlush(balance);
+
+        leaveBalanceRepository.flush();
+
+        log.info("ADJUST_USED_DAYS SUCCESS: id={}, leaveType={}, usedLeave={}, remainingLeave={}",
+                updated.getId(), updated.getLeaveType().getName(),
+                updated.getUsedLeave(), updated.getRemainingLeave());
+
+        return updated;
+    }
+
+    public LeaveBalance getLeaveBalanceOrNull(String userId, Long leaveTypeId) {
+        int currentYear = LocalDate.now().getYear();
+
+        try {
+            return leaveBalanceRepository
+                    .findByUserIdAndLeaveType_IdAndYear(userId, leaveTypeId, currentYear)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.error("Error fetching leave balance: {}", e.getMessage());
+            return null;
+        }
     }
 }

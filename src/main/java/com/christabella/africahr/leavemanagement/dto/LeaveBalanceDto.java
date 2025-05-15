@@ -1,17 +1,22 @@
 package com.christabella.africahr.leavemanagement.dto;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
+@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class LeaveBalanceDto {
     private String leaveType;
+    private Long leaveTypeId;
     private double defaultBalance;
-    private double carryOver;
-    private int usedLeave;
+    private double usedLeave;
     private String remainingLeave;
-    private int year; 
+    private double carryOver;
+    private int year;
 }
 
 
