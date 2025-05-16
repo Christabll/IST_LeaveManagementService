@@ -290,6 +290,29 @@ public class LeaveBalanceService {
         }
     }
 
+
+    @Transactional
+public LeaveBalance adjustCarryOver(String userId, Long leaveTypeId, Double carryOver) {
+    int currentYear = LocalDate.now().getYear();
+
+    LeaveBalance balance = leaveBalanceRepository
+            .findByUserIdAndLeaveType_IdAndYear(userId, leaveTypeId, currentYear)
+            .orElseThrow(() -> new ResourceNotFoundException("Leave balance not found"));
+
+    balance.setCarryOver(carryOver != null ? carryOver : 0.0);
+    balance.setManuallyAdjusted(true);
+
+    double remaining = balance.getDefaultBalance() + balance.getCarryOver() - balance.getUsedLeave();
+    String newRemainingValue = remaining % 1 == 0 ? String.format("%.0f", remaining)
+            : String.format("%.1f", remaining);
+    balance.setRemainingLeave(newRemainingValue);
+
+    LeaveBalance updated = leaveBalanceRepository.saveAndFlush(balance);
+
+    leaveBalanceRepository.flush();
+
+    return updated;
+}
     @Transactional
     public int initializeAllLeaveBalances() {
         int currentYear = LocalDate.now().getYear();

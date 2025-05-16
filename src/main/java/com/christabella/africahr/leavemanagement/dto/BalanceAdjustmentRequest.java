@@ -9,4 +9,5 @@ public class BalanceAdjustmentRequest {
     private Double newBalance;
     private Double usedDays;
     private String reason;
+    private Double carryOver;
 }

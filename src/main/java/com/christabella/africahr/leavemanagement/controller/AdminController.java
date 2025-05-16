@@ -115,7 +115,11 @@ public class AdminController {
         public ResponseEntity<ApiResponse<LeaveBalance>> adjustBalance(@RequestBody BalanceAdjustmentRequest request) {
             LeaveBalance updated;
             
-            if (request.getUsedDays() != null) {
+            if (request.getCarryOver() != null) {
+                updated = leaveBalanceService.adjustCarryOver(
+                        request.getUserId(), request.getLeaveTypeId(), request.getCarryOver()
+                );
+            } else if (request.getUsedDays() != null) {
                 updated = leaveBalanceService.adjustUsedDays(
                         request.getUserId(), request.getLeaveTypeId(), request.getUsedDays()
                 );
@@ -124,7 +128,7 @@ public class AdminController {
                         request.getUserId(), request.getLeaveTypeId(), request.getNewBalance()
                 );
             } else {
-                throw new BadRequestException("Either newBalance or usedDays must be provided");
+                throw new BadRequestException("Either carryOver, newBalance or usedDays must be provided");
             }
             
             return ResponseEntity.ok(ApiResponse.success("Balance adjusted", updated));
