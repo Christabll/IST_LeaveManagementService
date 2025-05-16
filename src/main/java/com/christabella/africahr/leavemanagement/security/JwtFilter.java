@@ -62,8 +62,6 @@ public class JwtFilter extends OncePerRequestFilter {
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-                logger.debug("User {} authenticated with roles: {}", email, authorities);
-
                 CustomUserDetails customUserDetails = new CustomUserDetails(userId, email, null, authorities);
 
                 UsernamePasswordAuthenticationToken auth =

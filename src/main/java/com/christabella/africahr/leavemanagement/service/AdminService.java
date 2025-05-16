@@ -48,11 +48,9 @@ public class AdminService {
             return Collections.emptyList();
         }
         return pending.stream().map(req -> {
-            logger.info("Fetching email for userId: {}", req.getUserId());
             String email = "N/A";
             if (req.getUserId() != null) {
                 email = userServiceClient.getUserEmail(req.getUserId());
-                logger.info("Fetched email for userId {}: {}", req.getUserId(), email);
             } else {
                 logger.warn("LeaveRequest ID {} has null userId!", req.getId());
             }
@@ -86,10 +84,6 @@ public class AdminService {
 
         long businessDays = leaveService.calculateBusinessDays(request.getStartDate(), request.getEndDate());
         
-        logger.info("Calculated {} business days for leave from {} to {}", 
-                businessDays, request.getStartDate(), request.getEndDate());
-
-
         LeaveBalance balance = leaveBalanceRepository
                 .findByUserIdAndLeaveType_IdAndYear(request.getUserId(), request.getLeaveType().getId(), currentYear)
                 .orElse(null);
@@ -141,7 +135,7 @@ public class AdminService {
         }
 
         // Send notifications
-        sendEmailNotification(request, "APPROVED");
+        sendEmailNotification(request);
         notificationService.notify(request.getUserId(), "Your leave request has been approved.");
 
         return leaveRequestRepository.save(request);
@@ -154,34 +148,57 @@ public class AdminService {
         request.setStatus(LeaveStatus.REJECTED);
         request.setApproverComment(comment);
 
-        sendEmailNotification(request, "REJECTED");
+        sendEmailNotification(request);
         notificationService.notify(request.getUserId(), "Your leave request has been rejected.");
 
         return leaveRequestRepository.save(request);
     }
 
-    private void sendEmailNotification(LeaveRequest request, String status) {
-        String userId = request.getUserId();
-        String recipientEmail = userServiceClient.getUserEmail(userId);
-        String fullName = userServiceClient.getUserFullName(userId);
-
-        if (recipientEmail == null || recipientEmail.isBlank()) {
-            logger.warn("Recipient email is null or blank for userId: {}", userId);
+    private void sendEmailNotification(LeaveRequest request) {
+        if (request == null || request.getUserId() == null) {
+            logger.error("Cannot send notification: request or userId is null");
             return;
         }
 
-        Map<String, Object> model = new java.util.HashMap<>();
-        model.put("name", fullName != null ? fullName : "");
-        model.put("startDate", request.getStartDate() != null ? request.getStartDate() : "");
-        model.put("endDate", request.getEndDate() != null ? request.getEndDate() : "");
-        model.put("status", status != null ? status : "");
-
-        logger.info("Sending email to: {}", recipientEmail);
-
-        emailService.sendHtmlEmail(
+        String userId = request.getUserId();
+        logger.info("Preparing to send email notification for leave request: {} (userId: {})", 
+                 request.getId(), userId);
+        
+        try {
+            String recipientEmail = userServiceClient.getUserEmail(userId);
+            String recipientName = userServiceClient.getUserFullName(userId);
+            
+            if (recipientEmail == null || recipientEmail.isBlank()) {
+                logger.error("Cannot send notification: email is null or blank for userId: {}", userId);
+                return;
+            }
+            
+            if (recipientName == null || recipientName.isBlank()) {
+                logger.warn("User full name not found for user: {}, using 'Employee' instead", userId);
+                recipientName = "Employee";
+            }
+            
+            logger.info("Sending status update email to user: {} ({})", recipientName, recipientEmail);
+            
+            Map<String, Object> model = Map.of(
+                    "name", recipientName,
+                    "startDate", request.getStartDate(),
+                    "endDate", request.getEndDate(),
+                    "status", request.getStatus(),
+                    "comment", request.getApproverComment()
+            );
+            
+            emailService.sendHtmlEmail(
                 recipientEmail,
-                "Your Leave Request has been " + status,
+                "Leave Request Status Update",
                 "leave-notification",
-                model);
+                model
+            );
+            
+            logger.info("Email notification sent successfully to: {}", recipientEmail);
+        } catch (Exception e) {
+            logger.error("Failed to send email notification for leave request {} (userId: {}): {}", 
+                     request.getId(), userId, e.getMessage(), e);
+        }
     }
 }

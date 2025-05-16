@@ -4,16 +4,38 @@
     <title>Leave Request Update</title>
 </head>
 <body>
-<h2>Hello <span th:text="${name}">User</span>,</h2>
-<p>We wanted to inform you that your leave request has been <strong th:text="${status}">STATUS</strong>.</p>
+<h2 th:if="${forApprover}">
+    <span th:if="${name != null and name != 'Approver'}">Hello <span th:text="${name}"></span>,</span>
+    <span th:unless="${name != null and name != 'Approver'}">Hello,</span>
+</h2>
+<p th:if="${forApprover}">
+    There is a new leave request from <strong th:text="${applicantName}">Applicant</strong> that requires your approval.<br/>
+    Please check the system for more details.
+</p>
+
+<h2 th:unless="${forApprover}">
+    Hello <span th:text="${name}">User</span>,
+</h2>
+<p th:unless="${forApprover}">
+    We wanted to inform you that your leave request has been <strong th:text="${status}">STATUS</strong>.
+</p>
 
 <p>
     <strong>Start Date:</strong> <span th:text="${startDate}"></span><br/>
     <strong>End Date:</strong> <span th:text="${endDate}"></span>
 </p>
 
-<p>If you have any questions, please reach out to the HR department.</p>
+<!-- Show comment if present -->
+<p th:if="${comment}">
+    <strong>Comment:</strong> <span th:text="${comment}"></span>
+</p>
 
-<p>Best regards,<br/>AfricaHR Team</p>
+<!-- Only show this for the applicant -->
+<p th:unless="${forApprover}">
+    If you have any questions, please reach out to the HR department.
+</p>
+<p th:unless="${forApprover}">
+    Best regards,<br/>AfricaHR Team
+</p>
 </body>
 </html>

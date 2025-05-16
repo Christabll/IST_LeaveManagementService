@@ -5,6 +5,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,9 @@ public class EmailService {
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
     private final UserServiceClient userServiceClient;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     public void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> model) {
         if (to == null || to.isBlank()) {
@@ -37,11 +41,16 @@ public class EmailService {
             Context context = new Context();
             context.setVariables(model);
             String htmlContent = templateEngine.process(templateName, context);
+            if (htmlContent == null || htmlContent.isBlank()) {
+                log.error("Failed to generate HTML content from template: {}", templateName);
+                return;
+            }
             log.debug("Generated HTML content length: {}", htmlContent.length());
 
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
+            helper.setFrom(fromEmail);
 
             log.info("Attempting to send email to: {}", to);
             mailSender.send(message);
@@ -81,5 +90,24 @@ public class EmailService {
         );
 
         sendHtmlEmail(email, "Leave Request Submitted", "leave-notification", model);
+    }
+    
+    // Test method to verify email sending works
+    public boolean testEmailSending(String testEmail) {
+        log.info("Testing email sending to: {}", testEmail);
+        try {
+            Map<String, Object> model = Map.of(
+                "name", "Test User",
+                "startDate", "2023-01-01",
+                "endDate", "2023-01-05",
+                "status", "TEST"
+            );
+            sendHtmlEmail(testEmail, "Leave Management System - Email Test", "leave-notification", model);
+            log.info("Test email sent successfully to: {}", testEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Test email sending failed: {}", e.getMessage(), e);
+            return false;
+        }
     }
 }

@@ -1,6 +1,8 @@
 package com.christabella.africahr.leavemanagement.exception;
 
 import com.christabella.africahr.leavemanagement.dto.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
@@ -11,6 +13,8 @@ import java.nio.file.AccessDeniedException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiResponse<?>> handleBadRequest(BadRequestException ex) {
@@ -44,7 +48,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGeneric(Exception ex) {
-        ex.printStackTrace();
+        logger.error("Exception occurred: ", ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error: " + ex.getMessage());
     }
 

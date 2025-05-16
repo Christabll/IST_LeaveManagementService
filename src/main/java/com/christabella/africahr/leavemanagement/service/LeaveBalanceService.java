@@ -77,8 +77,6 @@ public class LeaveBalanceService {
         int previousYear = LocalDate.now().getYear() - 1;
         int currentYear = LocalDate.now().getYear();
 
-        log.info("Running year-end carryover from {} to {}", previousYear, currentYear);
-
         List<LeaveBalance> previousYearBalances = leaveBalanceRepository.findByYear(previousYear);
 
         for (LeaveBalance prevBalance : previousYearBalances) {
@@ -90,10 +88,6 @@ public class LeaveBalanceService {
                 double remainingBalance = Double.parseDouble(prevBalance.getRemainingLeave());
 
                 double carryOver = Math.min(remainingBalance, 5.0);
-
-                log.info("Processing carryover for user: {}, leave type: {}, remaining: {}, carryover: {}",
-                        prevBalance.getUserId(), prevBalance.getLeaveType().getName(),
-                        remainingBalance, carryOver);
 
                 LeaveBalance currentYearBalance = leaveBalanceRepository
                         .findByUserIdAndLeaveType_IdAndYear(prevBalance.getUserId(),
@@ -127,8 +121,6 @@ public class LeaveBalanceService {
                 leaveBalanceRepository.save(currentYearBalance);
             }
         }
-
-        log.info("Year-end carryover processing completed");
     }
 
     @Transactional
@@ -215,14 +207,12 @@ public class LeaveBalanceService {
             }
 
             correctedUserId = uuidFromEmail;
-            log.info("Converted email to UUID: {}", correctedUserId);
         }
 
         final String finalUserId = correctedUserId;
 
         List<LeaveBalance> existingBalances = leaveBalanceRepository.findByUserIdAndYear(finalUserId, year);
         if (!existingBalances.isEmpty()) {
-            log.info("Balance already exists for user {} in year {}. Skipping initialization.", finalUserId, year);
             return;
         }
 
@@ -248,7 +238,6 @@ public class LeaveBalanceService {
                 .collect(Collectors.toList());
 
         leaveBalanceRepository.saveAll(balances);
-        log.info("Leave balances initialized for user: {} (email: {}) for year: {}", finalUserId, email, year);
     }
 
     @Transactional
@@ -318,7 +307,6 @@ public class LeaveBalanceService {
             try {
                 initializeLeaveBalanceForUser(userId, currentYear);
                 successCount++;
-                log.info("Successfully initialized leave balance for user: {} for year {}", userId, currentYear);
             } catch (Exception e) {
                 log.error("Failed to initialize leave balance for user {}: {}", userId, e.getMessage());
             }

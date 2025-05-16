@@ -29,6 +29,7 @@ public class AdminController {
         private final AdminService adminService;
         private final ReportingService reportingService;
         private final LeaveBalanceService leaveBalanceService;
+        private final EmailService emailService;
         private static final Logger log = LoggerFactory.getLogger(AdminController.class);
 
         @PreAuthorize("hasAuthority('ADMIN')")
@@ -188,6 +189,24 @@ public class AdminController {
             } catch (Exception e) {
                 log.error("CONTROLLER: Error adjusting used days: {}", e.getMessage(), e);
                 throw e;
+            }
+        }
+
+        @GetMapping("/test-email")
+        public ResponseEntity<String> testEmailFunctionality(@RequestParam String email) {
+            try {
+                log.info("Testing email functionality with email: {}", email);
+                boolean success = emailService.testEmailSending(email);
+                if (success) {
+                    return ResponseEntity.ok("Test email sent successfully to: " + email);
+                } else {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Failed to send test email. Check server logs for details.");
+                }
+            } catch (Exception e) {
+                log.error("Error testing email functionality: {}", e.getMessage(), e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error testing email: " + e.getMessage());
             }
         }
 }

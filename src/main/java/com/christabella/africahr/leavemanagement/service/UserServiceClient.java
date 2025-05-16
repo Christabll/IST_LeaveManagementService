@@ -8,6 +8,15 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import java.util.Collections;
 
 @Component
 @RequiredArgsConstructor
@@ -23,7 +32,8 @@ public class UserServiceClient {
     public String getUserFullName(String userId) {
         try {
             String url = authServiceUrl + "/api/v1/auth/users/" + userId + "/fullname";
-            return restTemplate.getForObject(url, String.class);
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            return response != null ? (String) response.get("data") : null;
         } catch (RestClientException e) {
             log.error("Failed to connect to auth service: {}", e.getMessage(), e);
             return null;
@@ -155,6 +165,103 @@ public class UserServiceClient {
         } catch (Exception e) {
             log.error("Unexpected error fetching user ID by email: {}", e.getMessage(), e);
             return null;
+        }
+    }
+
+    /**
+     * Get emails of all managers in the system
+     */
+    public List<String> getManagerEmails() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            String url = authServiceUrl + "/api/v1/auth/users/role/MANAGER/emails";
+            
+            ResponseEntity<List<String>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                new ParameterizedTypeReference<List<String>>() {}
+            );
+            
+            List<String> emails = response.getBody();
+            if (emails == null || emails.isEmpty()) {
+                log.warn("No manager emails found");
+                return Collections.emptyList();
+            }
+            
+            return emails;
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("No managers found in the system");
+            return Collections.emptyList();
+        } catch (HttpClientErrorException e) {
+            log.error("Client error while fetching manager emails: {}", e.getMessage());
+            return Collections.emptyList();
+        } catch (ResourceAccessException e) {
+            log.error("Connection error while fetching manager emails: {}", e.getMessage());
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Unexpected error while fetching manager emails: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Get emails of all admins in the system
+     */
+    public List<String> getAdminEmails() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            String url = authServiceUrl + "/api/v1/auth/users/role/ADMIN/emails";
+            
+            ResponseEntity<List<String>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                new ParameterizedTypeReference<List<String>>() {}
+            );
+            
+            List<String> emails = response.getBody();
+            if (emails == null || emails.isEmpty()) {
+                log.warn("No admin emails found");
+                return Collections.emptyList();
+            }
+            
+            return emails;
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("No admins found in the system");
+            return Collections.emptyList();
+        } catch (HttpClientErrorException e) {
+            log.error("Client error while fetching admin emails: {}", e.getMessage());
+            return Collections.emptyList();
+        } catch (ResourceAccessException e) {
+            log.error("Connection error while fetching admin emails: {}", e.getMessage());
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Unexpected error while fetching admin emails: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    public String getUserFullNameByEmail(String email) {
+        try {
+            String url = authServiceUrl + "/api/v1/auth/users/email/" + email;
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && response.get("data") instanceof Map dataMap) {
+                Object nameObj = dataMap.get("name");
+                return nameObj != null ? nameObj.toString() : "Approver";
+            }
+            return "Approver";
+        } catch (Exception e) {
+            log.error("Failed to fetch full name for email {}: {}", email, e.getMessage());
+            return "Approver";
         }
     }
 }

@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import java.util.HashSet;
 import com.christabella.africahr.leavemanagement.entity.PublicHoliday;
 import com.christabella.africahr.leavemanagement.repository.PublicHolidayRepository;
+import java.util.ArrayList;
 
 @Slf4j
 @Service
@@ -176,39 +177,26 @@ public class LeaveService {
     private void sendEmailNotifications(LeaveRequest leaveRequest) {
         try {
             String userEmail = userServiceClient.getUserEmail(leaveRequest.getUserId());
+            String applicantName = userServiceClient.getUserFullName(leaveRequest.getUserId());
             if (userEmail == null || userEmail.isBlank()) {
                 log.warn("User email is null or blank for userId: {}", leaveRequest.getUserId());
                 return;
             }
 
+
             Set<String> approverEmails = new HashSet<>();
+            approverEmails.addAll(userServiceClient.getManagerEmails());
+            approverEmails.addAll(userServiceClient.getAdminEmails());
+            // log.info("Approver emails to notify: {}", approverEmails);
 
-            List<String> managers = userServiceClient.getUsersByRole("MANAGER");
-            List<String> admins = userServiceClient.getUsersByRole("ADMIN");
-
-            for (String userId : managers) {
-                String email = userServiceClient.getUserEmail(userId);
-                if (email != null && !email.isBlank()) {
-                    approverEmails.add(email);
-                } else {
-                    log.warn("Manager email is missing for userId: {}. Skipping email notification.", userId);
-                }
-            }
-
-            for (String userId : admins) {
-                String email = userServiceClient.getUserEmail(userId);
-                if (email != null && !email.isBlank()) {
-                    approverEmails.add(email);
-                } else {
-                    log.warn("Admin email is missing for userId: {}. Skipping email notification.", userId);
-                }
-            }
-
+            // Send to user (the applicant)
             Map<String, Object> userModel = Map.of(
-                    "name", userServiceClient.getUserFullName(leaveRequest.getUserId()),
+                    "name", applicantName,
                     "startDate", leaveRequest.getStartDate(),
                     "endDate", leaveRequest.getEndDate(),
-                    "status", "SUBMITTED");
+                    "status", "SUBMITTED",
+                    "forApprover", false
+            );
             emailService.sendHtmlEmail(
                     userEmail,
                     "Leave Request Submitted",
@@ -216,11 +204,15 @@ public class LeaveService {
                     userModel);
 
             for (String approverEmail : approverEmails) {
+                String approverName = userServiceClient.getUserFullNameByEmail(approverEmail);
                 Map<String, Object> approverModel = Map.of(
-                        "name", userServiceClient.getUserFullName(leaveRequest.getUserId()),
+                        "name", approverName,
+                        "applicantName", applicantName,
                         "startDate", leaveRequest.getStartDate(),
                         "endDate", leaveRequest.getEndDate(),
-                        "status", "PENDING");
+                        "status", "PENDING",
+                        "forApprover", true
+                );
                 emailService.sendHtmlEmail(
                         approverEmail,
                         "New Leave Request for Approval",
@@ -248,7 +240,8 @@ public class LeaveService {
                                 "name", getUserFullName(userId),
                                 "startDate", request.getStartDate(),
                                 "endDate", request.getEndDate(),
-                                "status", "UPCOMING"));
+                                "status", "UPCOMING")
+                );
             } catch (Exception e) {
                 log.error("Failed to send upcoming leave reminder", e);
             }
@@ -302,22 +295,128 @@ public class LeaveService {
 
             List<String> managers = userServiceClient.getAllManagers();
             if (managers != null && !managers.isEmpty()) {
-                log.info("Found {} managers", managers.size());
+                // log.info("Found {} managers", managers.size());
                 all.addAll(managers);
             }
 
             List<String> admins = userServiceClient.getAdmins();
             if (admins != null && !admins.isEmpty()) {
-                log.info("Found {} admins", admins.size());
+                // log.info("Found {} admins", admins.size());
                 all.addAll(admins);
             }
 
-            log.info("Total approvers to notify: {}", all.size());
+            // log.info("Total approvers to notify: {}", all.size());
             return all;
         } catch (Exception e) {
             log.error("Error fetching managers and admins: {}", e.getMessage(), e);
             return List.of();
         }
+    }
+
+    
+    public LeaveRequest applyForLeave(LeaveRequest leaveRequest) {
+        if (leaveRequest.getUserId() == null || leaveRequest.getUserId().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+
+        LeaveRequest savedLeaveRequest = leaveRequestRepository.save(leaveRequest);
+        // log.info("Leave request saved successfully: {}", savedLeaveRequest.getId());
+        
+        try {
+            // log.info("Attempting to send notification for leave request: {}", savedLeaveRequest.getId());
+            
+
+            List<String> approverEmails = new ArrayList<>();
+            
+
+            try {
+                List<String> managerEmails = userServiceClient.getManagerEmails();
+                if (managerEmails != null && !managerEmails.isEmpty()) {
+                    // log.info("Found {} manager emails for notification", managerEmails.size());
+                    approverEmails.addAll(managerEmails);
+                } else {
+                    log.warn("No manager emails found for notification");
+                }
+            } catch (Exception e) {
+                log.error("Failed to retrieve manager emails: {}", e.getMessage(), e);
+            }
+            
+
+            try {
+                List<String> adminEmails = userServiceClient.getAdminEmails();
+                if (adminEmails != null && !adminEmails.isEmpty()) {
+                    // log.info("Found {} admin emails for notification", adminEmails.size());
+                    approverEmails.addAll(adminEmails);
+                } else {
+                    log.warn("No admin emails found for notification");
+                }
+            } catch (Exception e) {
+                log.error("Failed to retrieve admin emails: {}", e.getMessage(), e);
+            }
+            
+            if (approverEmails.isEmpty()) {
+                log.error("No approver emails found, cannot send leave request notification");
+                return savedLeaveRequest;
+            }
+            
+
+            String userFullName;
+            try {
+                userFullName = userServiceClient.getUserFullName(leaveRequest.getUserId());
+                if (userFullName == null || userFullName.isEmpty()) {
+                    log.warn("User full name not found for user: {}, using 'Employee' instead", leaveRequest.getUserId());
+                    userFullName = "Employee";
+                }
+            } catch (Exception e) {
+                log.error("Failed to retrieve user full name: {}", e.getMessage(), e);
+                userFullName = "Employee";
+            }
+            
+            for (String approverEmail : approverEmails) {
+                try {
+                    if (approverEmail == null || approverEmail.isBlank()) {
+                        log.warn("Skipping null or blank approver email");
+                        continue;
+                    }
+                    
+                    // log.info("Preparing to send notification to approver: {}", approverEmail);
+                    
+                    Map<String, Object> model = Map.of(
+                        "name", userFullName,
+                        "startDate", leaveRequest.getStartDate(),
+                        "endDate", leaveRequest.getEndDate(),
+                        "status", "PENDING - Requires your approval"
+                    );
+                    
+                    emailService.sendHtmlEmail(
+                        approverEmail,
+                        "Leave Request Requires Approval - " + userFullName,
+                        "leave-notification",
+                        model
+                    );
+                    
+                    // log.info("Notification sent to approver: {}", approverEmail);
+                } catch (Exception e) {
+                    log.error("Failed to send notification to approver {}: {}", approverEmail, e.getMessage(), e);
+
+                }
+            }
+            
+
+            try {
+                emailService.sendLeaveSubmissionEmail(savedLeaveRequest);
+                // log.info("Leave submission confirmation email sent to user: {}", leaveRequest.getUserId());
+            } catch (Exception e) {
+                log.error("Failed to send leave submission confirmation to user {}: {}", 
+                          leaveRequest.getUserId(), e.getMessage(), e);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error during email notification for leave request {}: {}", 
+                     savedLeaveRequest.getId(), e.getMessage(), e);
+        }
+        
+        return savedLeaveRequest;
     }
 
 }
