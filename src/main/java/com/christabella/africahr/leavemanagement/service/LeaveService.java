@@ -31,6 +31,7 @@ import java.util.HashSet;
 import com.christabella.africahr.leavemanagement.entity.PublicHoliday;
 import com.christabella.africahr.leavemanagement.repository.PublicHolidayRepository;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 @Slf4j
 @Service
@@ -278,6 +279,13 @@ public class LeaveService {
                 .message("Team members currently on leave with details")
                 .data(result)
                 .build();
+    }
+
+
+    public List<String> getAllStatuses() {
+        return Arrays.stream(LeaveStatus.values())
+                     .map(Enum::name)
+                     .collect(Collectors.toList());
     }
 
     private String getUserEmail(String userId) {

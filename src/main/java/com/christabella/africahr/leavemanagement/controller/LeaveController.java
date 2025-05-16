@@ -2,6 +2,7 @@ package com.christabella.africahr.leavemanagement.controller;
 
 import com.christabella.africahr.leavemanagement.dto.*;
 import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
+import com.christabella.africahr.leavemanagement.enums.LeaveStatus;
 import com.christabella.africahr.leavemanagement.exception.BadRequestException;
 import com.christabella.africahr.leavemanagement.security.CustomUserDetails;
 import com.christabella.africahr.leavemanagement.service.LeaveBalanceService;
@@ -16,7 +17,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/leave")
@@ -108,4 +111,13 @@ public class LeaveController {
     public ResponseEntity<ApiResponse<List<TeamOnLeaveDto>>> teamOnLeave(@RequestParam(required = false) String department) {
         return ResponseEntity.ok(leaveService.getTeamOnLeaveTooltipInfo(department));
     }
+
+    @GetMapping("/statuses")
+    public ResponseEntity<ApiResponse<List<String>>> getStatuses() {
+        List<String> statuses = Arrays.stream(LeaveStatus.values())
+                                      .map(Enum::name)
+                                      .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success("Statuses fetched", statuses));
+    }
+
 }

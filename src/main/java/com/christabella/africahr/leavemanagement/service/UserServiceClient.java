@@ -59,7 +59,8 @@ public class UserServiceClient {
     public String getUserDepartment(String userId) {
         try {
             String url = authServiceUrl + "/api/v1/auth/users/" + userId + "/department";
-            return restTemplate.getForObject(url, String.class);
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            return response != null ? (String) response.get("data") : null;
         } catch (RestClientException e) {
             log.error("Failed to connect to auth service: {}", e.getMessage(), e);
             return null;

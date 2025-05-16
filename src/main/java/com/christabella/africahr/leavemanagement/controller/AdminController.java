@@ -94,25 +94,19 @@ public class AdminController {
 
         @PreAuthorize("hasAuthority('ADMIN')")
         @GetMapping("/reports")
-        public ResponseEntity<ApiResponse<List<ReportDto>>> reports() {
-                List<ReportDto> reports = reportingService.generateAllLeaveReports();
-                return ResponseEntity.ok(ApiResponse.<List<ReportDto>>builder()
+        public ResponseEntity<ApiResponse<List<LeaveReportDto>>> reports(
+                @RequestParam(required = false) String type,
+                @RequestParam(required = false) String department,
+                @RequestParam(required = false) String status,
+                @RequestParam(required = false) String start,
+                @RequestParam(required = false) String end
+        ) {
+                List<LeaveReportDto> reports = reportingService.getLeaveReports(type, department, status, start, end);
+                return ResponseEntity.ok(ApiResponse.<List<LeaveReportDto>>builder()
                                 .success(true)
                                 .message("Leave report generated")
                                 .data(reports)
                                 .build());
-        }
-
-        @PreAuthorize("hasAuthority('ADMIN')")
-        @GetMapping("/reports/export")
-        public ResponseEntity<Resource> exportReports() {
-                ByteArrayInputStream stream = reportingService.exportReportsToCSV();
-                InputStreamResource resource = new InputStreamResource(stream);
-
-                return ResponseEntity.ok()
-                                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=leave-reports.csv")
-                                .contentType(MediaType.parseMediaType("text/csv"))
-                                .body(resource);
         }
 
         
