@@ -4,6 +4,7 @@ import com.christabella.africahr.leavemanagement.dto.*;
 import com.christabella.africahr.leavemanagement.entity.LeaveRequest;
 import com.christabella.africahr.leavemanagement.service.AdminService;
 import com.christabella.africahr.leavemanagement.service.LeaveBalanceService;
+import com.christabella.africahr.leavemanagement.service.ReportingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +20,7 @@ public class ManagerController {
 
     private final AdminService adminService;
     private final LeaveBalanceService leaveBalanceService;
+    private final ReportingService reportingService;
 
 
     @PutMapping("/leave-requests/{leaveRequestId}/approve")
@@ -65,6 +67,22 @@ public class ManagerController {
                 .success(true)
                 .message("User leave balance")
                 .data(balances)
+                .build());
+    }
+
+    @GetMapping("/reports")
+    public ResponseEntity<ApiResponse<List<LeaveReportDto>>> reports(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end
+    ) {
+        List<LeaveReportDto> reports = reportingService.getLeaveReports(type, department, status, start, end);
+        return ResponseEntity.ok(ApiResponse.<List<LeaveReportDto>>builder()
+                .success(true)
+                .message("Leave report generated")
+                .data(reports)
                 .build());
     }
 
